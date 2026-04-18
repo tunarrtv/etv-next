@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::fmt::Formatter;
 use std::time::Duration;
 
@@ -18,6 +19,7 @@ use crate::probe::{ProbeResultAudioStream, ProbeResultStream, ProbeResultVideoSt
 use crate::video_codec::VideoCodec;
 use crate::video_decoder::VideoDecoder;
 use crate::video_filter::VideoFilter;
+use crate::ArgVec;
 
 pub const KEYFRAME_INTERVAL_SECONDS: u32 = 2;
 pub const SEGMENT_SECONDS: u32 = 4;
@@ -402,8 +404,8 @@ impl Pipeline {
         }
     }
 
-    pub fn args(&self) -> Vec<String> {
-        let mut result: Vec<String> = Vec::new();
+    pub fn args(&self) -> ArgVec {
+        let mut result: ArgVec = Vec::new();
 
         let mut audio_label = String::from("0:a");
         let mut video_label = String::from("0:v");
@@ -439,7 +441,7 @@ impl Pipeline {
                     // if more than one path, audio is probably separate from video
                     if distinct_paths.len() > 1 {
                         result.extend(input_source.args_for_input());
-                        result.extend([String::from("-i"), path.to_owned()]);
+                        result.extend(args!["-i", path.to_owned()]);
                     }
                 }
                 PipelineInput::Video {
@@ -458,16 +460,16 @@ impl Pipeline {
                     video_label = format!("{}:{}", video_input_index, index);
 
                     if !seek.is_zero() {
-                        result.extend([String::from("-ss"), format!("{}ms", seek.as_millis())]);
+                        result.extend(args!["-ss", format!("{}ms", seek.as_millis())]);
                     }
 
                     if *realtime {
-                        result.extend([String::from("-readrate"), String::from("1.0")]);
+                        result.extend(args!["-readrate", "1.0"]);
                     }
 
                     result.extend(input_source.args_for_input());
 
-                    result.extend([String::from("-i"), path.to_owned()]);
+                    result.extend(args!["-i", path.to_owned()]);
                 }
             }
         }
@@ -477,8 +479,8 @@ impl Pipeline {
 
         result.extend(filter_chain.as_arg());
 
-        result.extend([String::from("-map"), filter_chain.video_label().to_owned()]);
-        result.extend([String::from("-map"), filter_chain.audio_label().to_owned()]);
+        result.extend(args!["-map", filter_chain.video_label().to_owned()]);
+        result.extend(args!["-map", filter_chain.audio_label().to_owned()]);
 
         result.extend(
             self.output_options
@@ -486,7 +488,7 @@ impl Pipeline {
                 .flat_map(|o| o.as_arg(&self.output_context)),
         );
 
-        result.extend([self.output.path.to_owned()]);
+        result.extend(args![self.output.path.to_owned()]);
 
         result
     }
