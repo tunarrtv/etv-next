@@ -1,4 +1,6 @@
 use std::borrow::Cow;
+use std::convert::Into;
+use std::iter::Iterator;
 use std::path::Path;
 use std::sync::LazyLock;
 
@@ -28,6 +30,8 @@ pub enum KnownHardwareAccel {
     VideoToolbox,
     #[strum(serialize = "vulkan")]
     Vulkan,
+    #[strum(serialize = "opencl")]
+    Opencl,
 }
 
 /// Convert a KnownHardwareAccel to a Cow-wrapped &'static str.
@@ -53,6 +57,8 @@ pub enum KnownVideoFilter {
     ScaleVaapi,
     #[strum(serialize = "scale_vulkan")]
     ScaleVulkan,
+    #[strum(serialize = "tonemap_opencl")]
+    TonemapOpencl,
     #[strum(serialize = "vpp_qsv")]
     VppQsv,
     #[strum(serialize = "w3fdif")]
@@ -93,11 +99,13 @@ impl FfmpegInfo {
     }
 
     pub fn has_hw_accel(&self, hw_accel: &KnownHardwareAccel) -> bool {
-        self.hwaccels.contains(&hw_accel.to_string())
+        let accel_string = hw_accel.to_string();
+        self.hwaccels.iter().any(|f| f == &accel_string)
     }
 
     pub fn has_video_filter(&self, filter: &KnownVideoFilter) -> bool {
-        self.video_filters.contains(&filter.to_string())
+        let filter_string = filter.to_string();
+        self.video_filters.iter().any(|f| f == &filter_string)
     }
 
     async fn load_hw_accels(path: &Path) -> Result<Vec<String>, FFPipelineError> {

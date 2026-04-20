@@ -1,6 +1,7 @@
 use std::fmt::{Display, Formatter};
 
 use crate::ArgVec;
+use crate::accel::opencl::TonemapOpencl;
 use crate::capabilities::vaapi::VaapiCapabilities;
 use crate::ffmpeg_info::{FfmpegInfo, KnownHardwareAccel, KnownVideoFilter};
 use crate::frame_size::FrameSize;
@@ -31,6 +32,7 @@ pub struct Vaapi {
     pub device: String,
     pub driver: VaapiDriver,
     pub capabilities: VaapiCapabilities,
+    pub needs_opencl_device: bool,
 }
 
 impl HwAccel for Vaapi {
@@ -57,6 +59,17 @@ impl HwAccel for Vaapi {
             {
                 VideoFilter::Hardware(Box::new(PadVaapi { size: size.clone() }))
             }
+
+            // TODO: Use preferences here.
+            VideoFilter::ToneMap { algorithm, format }
+                if ffmpeg_info.has_video_filter(&KnownVideoFilter::TonemapOpencl) =>
+            {
+                VideoFilter::Hardware(Box::new(TonemapOpencl {
+                    algorithm: algorithm.clone(),
+                    output_format: format.clone(),
+                }))
+            }
+
             _ => video_filter.clone(),
         }
     }
@@ -113,7 +126,23 @@ impl HwAccel for Vaapi {
     }
 
     fn decoder_arg(&self) -> ArgVec {
-        args!["-hwaccel", "vaapi", "-hwaccel_output_format", "vaapi"]
+        if self.needs_opencl_device {
+            return args![
+                "-hwaccel",
+                KnownHardwareAccel::Vaapi,
+                "-hwaccel_output_format",
+                KnownHardwareAccel::Vaapi,
+                "-hwaccel_device",
+                "va",
+            ];
+        }
+
+        args![
+            "-hwaccel",
+            KnownHardwareAccel::Vaapi,
+            "-hwaccel_output_format",
+            KnownHardwareAccel::Vaapi,
+        ]
     }
 
     fn decoder_frame_surface(&self) -> FrameSurface {
@@ -134,12 +163,30 @@ impl HwAccel for Vaapi {
         })))
     }
 
-    fn initialize(&self, _ffmpeg_info: &FfmpegInfo, _is_hdr: bool) -> Self {
-        self.clone()
+    fn initialize(&self, ffmpeg_info: &FfmpegInfo, is_hdr: bool) -> Self {
+        Vaapi {
+            device: self.device.clone(),
+            driver: self.driver.clone(),
+            capabilities: self.capabilities.clone(),
+            // TODO: Will need to use preferences here too.
+            // Logic is a bit disjoint. It would be better if "best" filter could
+            // append state around the pipeline.
+            needs_opencl_device: is_hdr
+                && ffmpeg_info.has_video_filter(&KnownVideoFilter::TonemapOpencl),
+        }
     }
 
     fn init_hw_device(&self) -> ArgVec {
-        args!["-vaapi_device", self.device.clone()]
+        if self.needs_opencl_device {
+            args![
+                "-init_hw_device",
+                format!("vaapi=va:{}", self.device.clone()),
+                "-init_hw_device",
+                "opencl=ocl@va"
+            ]
+        } else {
+            args!["-vaapi_device", self.device.clone()]
+        }
     }
 
     fn known_accel(&self) -> &KnownHardwareAccel {

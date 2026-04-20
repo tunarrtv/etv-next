@@ -31,9 +31,80 @@ pub enum SoftwareDeinterlaceFilter {
 }
 
 pub trait HwVideoFilter: DynClone {
+    /// Evaluates the current state of a video frame and determines the
+    /// appropriate video filter to be applied.
+    ///
+    /// # Parameters
+    /// - `&self`: A reference to the instance of the containing type.
+    /// - `state`: A reference to the current `FrameState` which contains
+    ///   information about the video frame to be evaluated.
+    ///
+    /// # Returns
+    /// - `Option<VideoFilter>`: Returns `Some(VideoFilter)` if a suitable video
+    ///   filter is determined based on the frame state. Returns `None` if no filter
+    ///   is applicable.
+    ///
+    /// # Usage
+    /// This function is designed to analyze the provided `FrameState` to determine
+    /// whether a filter should be applied to the video frame and, if so, what type
+    /// of filter it should be. It returns `None` when no filtering logic is necessary.
+    ///
+    /// # Example
+    /// ```rust
+    /// let frame_state = FrameState::new(...);
+    /// let filter =
     fn evaluate(&self, state: &FrameState) -> Option<VideoFilter>;
+    /// Applies the current object's logic or transformations to the given `FrameState` object.
+    ///
+    /// This method modifies the provided `FrameState` in place. Implementations of this function
+    /// define the specific behavior to be applied to the state, such as updating properties,
+    /// performing calculations, or appending data.
+    ///
+    /// # Parameters
+    /// - `state`: A mutable reference to a `FrameState` object that represents the current state
+    ///   of the frame. The function alters this object directly.
+    ///
+    /// # Example
+    /// ```
+    /// let mut frame_state = FrameState::new();
+    /// some_object.apply_to(&mut frame_state);
+    /// // The frame_state is now modified based on the logic of `apply_to`.
+    /// ```
+    ///
+    /// # Note
+    /// This method assumes that the caller has properly instantiated and initialized the
+    /// `FrameState` object before invoking this function.
     fn apply_to(&self, state: &mut FrameState);
+    /// Returns the `FrameSurface` that is required for the current context.
+    ///
+    /// This method determines and returns the necessary `FrameSurface` that
+    /// corresponds to the operations or rendering tasks associated with the
+    /// object it is called on.
+    ///
+    /// # Returns
+    ///
+    /// * `FrameSurface` - Specifies the type of frame surface that is necessary for this filter's operations
+    ///   to be executed, based on the underlying implementation or hardware requirements.
     fn required_surface(&self) -> FrameSurface;
+    /// Converts the implementer into an optional `String` representation.
+    ///
+    /// # Returns
+    /// - `Some(String)` if the implementer can be represented as a `String`.
+    /// - `None` if the implementer cannot be converted to a `String`.
+    ///
+    /// # Examples
+    /// ```rust
+    /// struct MyType;
+    ///
+    /// impl MyType {
+    ///     fn as_arg(&self) -> Option<String> {
+    ///         Some("example".to_string())
+    ///     }
+    /// }
+    ///
+    /// let my_obj = MyType;
+    /// assert_eq!(my_obj.as_arg(), Some("example".to_string()));
+    /// ```
     fn as_arg(&self) -> Option<String>;
 }
 

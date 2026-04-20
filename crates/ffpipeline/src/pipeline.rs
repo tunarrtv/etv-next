@@ -69,6 +69,7 @@ pub enum FrameSurface {
     Vaapi,
     VideoToolbox,
     Vulkan,
+    OpenCL,
 }
 
 #[derive(Debug, Clone, PartialEq)]
